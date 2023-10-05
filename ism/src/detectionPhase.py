@@ -168,4 +168,3 @@ class detectionPhase(initIsm):
         return toa
 
         #TODO
-        return toa
