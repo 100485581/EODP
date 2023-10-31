@@ -69,7 +69,7 @@ class mtf:
 
         # Calculate the System MTF
         self.logger.debug("Calculation of the Sysmtem MTF by multiplying the different contributors")
-        Hsys = 1 # dummy
+        Hsys = Hdiff * Hdefoc * Hwfe * Hdet * Hsmear * Hmotion # dummy
 
         # Plot cuts ACT/ALT of the MTF
         self.plotMtf(Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band)
@@ -132,10 +132,9 @@ class mtf:
         :return: Defocus MTF
         """
         #TODO
-        x = pi * defocus * fr2D * (1-fr2D)
-        #j1 = x / 2 - (x**3) / 16 + (x**5) / 384 - (x**7) / 18432
-        scipy.special.j1(x)
-        Hdefoc = (2 *  j1) / x
+        x = pi * defocus * fr2D * (1 - fr2D)
+        # myj1 = x / 2 - (x**3) / 16 + (x**5) / 384 - (x**7) / 18432
+        Hdefoc = (2 * j1(x)) / x
         return Hdefoc
 
     def mtfWfeAberrations(self, fr2D, lambd, kLF, wLF, kHF, wHF):
@@ -211,4 +210,4 @@ class mtf:
         :param band: band
         :return: N/A
         """
-        #TODO
+        #This plots have been programmed at test code
