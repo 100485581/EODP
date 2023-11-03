@@ -1,3 +1,4 @@
+
 from ism.src.initIsm import initIsm
 from math import pi
 from ism.src.mtf import mtf
@@ -29,6 +30,8 @@ class opticalPhase(initIsm):
         # Calculation and application of the ISRF
         # -------------------------------------------------------------------------------
         self.logger.info("EODP-ALG-ISM-1010: Spectral modelling. ISRF")
+
+        #isrf, isrf_wv = readIsrf(self.auxdir + self.ismConfig.isrffile, band)
         toa = self.spectralIntegration(sgm_toa, sgm_wv, band)
 
         self.logger.debug("TOA [0,0] " +str(toa[0,0]) + " [e-]")
@@ -58,9 +61,10 @@ class opticalPhase(initIsm):
                                 self.ismConfig.defocus, self.ismConfig.ksmear, self.ismConfig.kmotion,
                                 self.outdir, band)
 
-        # Apply system MTF
+        # Apply system MTF Slide. 66 GE=fft2(toa)
         toa = self.applySysMtf(toa, Hsys) # always calculated
         self.logger.debug("TOA [0,0] " +str(toa[0,0]) + " [e-]")
+
 
 
 
@@ -92,9 +96,8 @@ class opticalPhase(initIsm):
         :return: TOA image in irradiances [mW/m2]
         """
         # TODO
-
-        toa = toa * Tr * pi/4 * (D/f)**2
-
+        #poner np delante de la funcion
+        toa = toa*Tr*(np.pi/4)*(D/f)**2
         return toa
 
 
@@ -106,13 +109,11 @@ class opticalPhase(initIsm):
         :return: TOA image in irradiances [mW/m2]
         """
         # TODO
-        GE = fft2(toa)  # 2D Image Fourier Transform
-        toa_ft_frequency_domain = GE * fftshift(Hsys)
-        toa_ft_spatial_domain = ifft2(toa_ft_frequency_domain)
-        toa_ft = np.real(toa_ft_spatial_domain)
-        # Check that the imagnary part is NEGLIGIBLE
+        GE = fft2(toa)
 
-
+        toa_ft_freq_dom = GE * fftshift(Hsys)
+        toa_ft_spatial_dom = ifft2(toa_ft_freq_dom)
+        toa_ft = np.real(toa_ft_spatial_dom)
         return toa_ft
 
     def spectralIntegration(self, sgm_toa, sgm_wv, band):
@@ -124,26 +125,27 @@ class opticalPhase(initIsm):
         :return: TOA image 2D in radiances [mW/m2]
         """
         # TODO
+        isrf, isrf_wv = readIsrf(self.auxdir + self.ismConfig.isrffile, band)
+        isrf_wv = isrf_wv*1000 # Conversion to nm
 
-        isrf, isrf_wv = readIsrf(self.auxdir + self.ismConfig.isrffile,band)
-        # normalize isrf
-        isrf_n = isrf / (np.sum(isrf))
-        sum_isrf_n = np.sum(isrf_n)  # sum = 1.0
+        isrf_norm = isrf/np.sum(isrf)
 
-        # Initialize the output toa (third dimension removed)
         toa = np.zeros((sgm_toa.shape[0], sgm_toa.shape[1]))
+        for ialt in range (len(sgm_toa)):
 
-        # Double Loop for interpolation
-        for ialt in range(sgm_toa.shape[0]):
+            for iact in range (len(sgm_toa[0])):
 
-            for iact in range(sgm_toa.shape[1]):
-                # interpolate to the frequencies of the ISRF
-                cs = interp1d(sgm_wv, sgm_toa[ialt, iact, :], fill_value=(0, 0), bounds_error=False)
+                #Interpolate to the frequencies of the ISRF
+                cs = interp1d(sgm_wv, sgm_toa[ialt, iact, :], fill_value=(0, 0), bounds_error=False) # uno en microns y otro en nanometros asi que hay que arreglar eso
 
-                toa_interp = cs(isrf_wv * 1000)  # convert to nanometers
+                #Interpolation
+                toa_interp = cs(isrf_wv)
 
-                # apply filter
-                toa[ialt, iact] = np.sum(toa_interp * isrf_n)
+                L_vec = toa_interp*isrf_norm #Vector for filtered construct
+
+                #Apply filter
+                toa[ialt,iact] = np.sum(L_vec)  #toa after filter applied
+
 
         return toa
 

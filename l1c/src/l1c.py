@@ -65,9 +65,11 @@ class l1c(initL1c):
         #TODO
         
         tck = bisplrep(lat, lon, toa)
+        #Set Definition
         mgrs_tiles = set([])
         m = mgrs.MGRS()
         #mg_mgrs = np.zeros((lat.shape[0], lat.shape[1]))
+        #Definicion de puntos mgrs en matriz de 100*150
         for i in range(lat.shape[0]):
             for j in range(lat.shape[1]):
                 mgrs_tiles.add(str(m.toMGRS(lat[i, j], lon[i, j],True, self.l1cConfig.mgrs_tile_precision)))

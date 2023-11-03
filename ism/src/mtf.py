@@ -6,10 +6,12 @@ import matplotlib.pyplot as plt
 from scipy.special import j1
 from numpy.matlib import repmat
 from common.io.readMat import writeMat
+from common.io.readArray import writeArray
 from common.plot.plotMat2D import plotMat2D
 from scipy.interpolate import interp2d
 from numpy.fft import fftshift, ifft2
 import os
+from scipy.special import j1
 
 class mtf:
     """
@@ -69,11 +71,20 @@ class mtf:
 
         # Calculate the System MTF
         self.logger.debug("Calculation of the Sysmtem MTF by multiplying the different contributors")
-        Hsys = Hdiff * Hdefoc * Hwfe * Hdet * Hsmear * Hmotion # dummy
+        Hsys = Hdiff*Hdefoc*Hwfe*Hdet*Hsmear*Hmotion # dummy Slide 41 product os 6 mtfs
 
         # Plot cuts ACT/ALT of the MTF
         self.plotMtf(Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band)
 
+        writeMat(self.outdir, 'Hdiff_' + band, Hdiff)
+        writeMat(self.outdir, 'Hdefoc_' + band, Hdefoc)
+        writeMat(self.outdir, 'Hwfe_' + band, Hwfe)
+        writeMat(self.outdir, 'Hdet_' + band, Hdet)
+        writeMat(self.outdir, 'Hsmear_' + band, Hsmear)
+        writeMat(self.outdir, 'Hmotion_' + band, Hmotion)
+        writeMat(self.outdir, 'Hsys_' + band, Hsys)
+        writeArray(self.outdir, 'fnAct_' + band, fnAct)
+        writeArray(self.outdir, 'fnAlt_' + band, fnAlt)
 
         return Hsys
 
@@ -92,20 +103,24 @@ class mtf:
         :return fnAlt: 1D normalised frequencies 2D ALT (f/(1/w))
         """
         #TODO
+
         fstepAlt = 1 / nlines / w
         fstepAct = 1 / ncolumns / w
+
         eps = 1e-6
         fAlt = np.arange(-1 / (2 * w), 1 / (2 * w) - eps, fstepAlt)
         fAct = np.arange(-1 / (2 * w), 1 / (2 * w) - eps, fstepAct)
 
-        fnAct = fAct / (1 / w)
-        fnAlt = fAlt / (1 / w)
+        fnAlt = fAlt / (1/w) # Normalization
+        fnAct = fAct / (1/w)
 
         [fnAltxx, fnActxx] = np.meshgrid(fnAlt, fnAct, indexing='ij')  # Please use ‘ij’ indexing or
+
         fn2D = np.sqrt(fnAltxx * fnAltxx + fnActxx * fnActxx)
 
-        f_co = D / (lambd * focal)
-        fr2D = fn2D * (1/w) / f_co
+        f_co = D/(lambd*focal)
+        fr2D = fn2D* (1/w) / f_co
+
 
         return fn2D, fr2D, fnAct, fnAlt
 
@@ -117,7 +132,7 @@ class mtf:
         """
         #TODO
 
-        Hdiff = (2 / pi) * (np.arccos(fr2D)-(fr2D)*(1-(fr2D)**2)**1/2)
+        Hdiff = 2/np.pi*(np.arccos(fr2D)-fr2D*(1-fr2D**2)**0.5)
 
         return Hdiff
 
@@ -132,9 +147,11 @@ class mtf:
         :return: Defocus MTF
         """
         #TODO
-        x = pi * defocus * fr2D * (1 - fr2D)
-        # myj1 = x / 2 - (x**3) / 16 + (x**5) / 384 - (x**7) / 18432
-        Hdefoc = (2 * j1(x)) / x
+
+        x = np.pi*defocus*fr2D*(1-fr2D)
+
+        Hdefoc = 2 * (j1(x)) / x
+
         return Hdefoc
 
     def mtfWfeAberrations(self, fr2D, lambd, kLF, wLF, kHF, wHF):
@@ -150,7 +167,7 @@ class mtf:
         """
         #TODO
 
-        Hwfe = np.exp(-fr2D * (1-fr2D) * (kLF * (wLF/lambd)**2+kHF * (wHF/lambd)**2))
+        Hwfe = np.exp(-fr2D*(1-fr2D)*(kLF*(wLF/lambd)**2+kHF*(wHF/lambd)**2))
 
         return Hwfe
 
@@ -161,8 +178,8 @@ class mtf:
         :return: detector MTF
         """
         #TODO
-        Hdet  = abs(np.sinc(fn2D))
 
+        Hdet = np.abs(np.sinc(fn2D))
         return Hdet
 
     def mtfSmearing(self, fnAlt, ncolumns, ksmear):
@@ -174,10 +191,11 @@ class mtf:
         :return: Smearing MTF
         """
         #TODO
-
-        for fnAlt in range (ncolumns):
-            Hsmear = np.sinc(ksmear * fnAlt)
-
+        #Slide 60
+        #vamos a repetirlo para los 150 colums
+        Hsmear = np.zeros((len(fnAlt),ncolumns))
+        for iAlt in range (ncolumns):
+            Hsmear[:, iAlt] = np.sinc(ksmear*fnAlt)
         return Hsmear
 
     def mtfMotion(self, fn2D, kmotion):
@@ -189,7 +207,7 @@ class mtf:
         """
         #TODO
 
-        Hmotion = np.sinc(kmotion * fn2D)
+        Hmotion = np.sinc(kmotion*fn2D)
         return Hmotion
 
     def plotMtf(self,Hdiff, Hdefoc, Hwfe, Hdet, Hsmear, Hmotion, Hsys, nlines, ncolumns, fnAct, fnAlt, directory, band):
@@ -210,4 +228,24 @@ class mtf:
         :param band: band
         :return: N/A
         """
-        #This plots have been programmed at test code
+        #TODO
+
+        # Lo tengo hecho donde el test ISM
+        #nlines_ALT = Hdiff.shape[0]
+        #ALT_central_line = int(nlines_ALT / 2)
+        # nlines_ACT = my_toa.shape[1]
+        # ALC_central_line = int(nlines_ALT / 2)
+
+        #plt.plot(fnAct, Hdiff[ALT_central_line])
+        #plt.plot(fnAct, Hdefoc[ALT_central_line])
+        #plt.plot(fnAct, Hwfe[ALT_central_line])
+        #plt.plot(fnAct, Hdet[ALT_central_line])
+        #plt.plot(fnAct, Hsmear[ALT_central_line])
+        #plt.plot(fnAct, Hmotion[ALT_central_line])
+        #plt.plot(fnAct, Hsys[ALT_central_line])
+        #plt.xlabel('Spatial frequencies f/(1/w) [-]')
+        #plt.ylabel('MTF')
+        #plt.title("System MTF slice ALT for " + band)
+        #plt.legend(['Hdiff', 'Hdefoc', 'Hwfe', 'Hwfe', 'Hsmear', 'Hmotion', 'Hsys'])
+        #a=2
+
